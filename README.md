@@ -1,20 +1,20 @@
-# Windows Sign-In Context Reporter
+# Windows Context Reporter
 
-A read-only PowerShell toolkit for Windows sign-in support context.
+A read-only PowerShell toolkit for Windows support context.
 
 ## Features
 
 - OS and computer summary
 - Key Windows service status
-- Device registration text export where available
-- CSV, JSON, TXT, and HTML output
+- Domain/workgroup context
+- CSV, JSON, and HTML output
 
 ## How to run
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\Windows_SignIn_Context_Reporter.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\Windows_Context_Reporter.ps1
 ```
 
 ## Safety
 
-Diagnostic-only. It does not read passwords, secrets, tokens, or browser data.
+Diagnostic-only. It reports local system context for support review.
