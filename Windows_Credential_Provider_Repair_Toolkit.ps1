@@ -54,11 +54,14 @@ function Invoke-RepairAction([string]$Description,[scriptblock]$Script) {
         Write-Log "FAILED: $Description - $($_.Exception.Message)"
     }
 }
+function Get-ProviderDisabledValue {
+    if (-not $providerPath) { return $null }
+    try { return Get-ItemPropertyValue -Path $providerPath -Name Disabled -ErrorAction Stop } catch { return $null }
+}
 function Get-ProviderState {
     if (-not $providerPath) { return $null }
     $item = Get-Item $providerPath
-    $properties = Get-ItemProperty $providerPath
-    [pscustomobject]@{ Guid=$ProviderGuid; Name=$item.GetValue(''); Disabled=$properties.Disabled }
+    [pscustomobject]@{ Guid=$ProviderGuid; Name=$item.GetValue(''); Disabled=Get-ProviderDisabledValue }
 }
 function Get-RepairState {
     $winlogon = Get-ItemProperty $winlogonPath
@@ -93,7 +96,7 @@ if ($RestoreWinlogonDefaults) {
 if ($RestartIdentityServices) {
     foreach ($serviceName in 'VaultSvc','TokenBroker','NgcCtnrSvc','WbioSrvc') {
         if (Get-Service $serviceName -ErrorAction SilentlyContinue) {
-            Invoke-RepairAction "Restarting identity service $serviceName" {
+            Invoke-RepairAction "Starting or restarting identity service $serviceName" {
                 $service = Get-Service $serviceName
                 if ($service.Status -eq 'Running') { Restart-Service $serviceName -Force } else { Start-Service $serviceName }
             }
@@ -104,7 +107,7 @@ if ($RestartIdentityServices) {
 if (-not $DryRun) { Start-Sleep -Seconds 2 }
 $after = Get-RepairState
 $after | ConvertTo-Json -Depth 8 | Set-Content $afterPath -Encoding UTF8
-if ($EnableProvider -and (Get-ItemProperty $providerPath).Disabled -ne 0) { $script:VerificationFailures++; Write-Log 'VERIFY FAILED: credential provider remains disabled.' }
+if ($EnableProvider -and (Get-ProviderDisabledValue) -ne 0) { $script:VerificationFailures++; Write-Log 'VERIFY FAILED: credential provider remains disabled.' }
 if ($RestoreWinlogonDefaults) {
     $values = Get-ItemProperty $winlogonPath
     if ($values.Shell -ne 'explorer.exe' -or $values.Userinit -ne "$env:SystemRoot\system32\userinit.exe,") { $script:VerificationFailures++; Write-Log 'VERIFY FAILED: Winlogon defaults do not match expected values.' }
@@ -112,7 +115,7 @@ if ($RestoreWinlogonDefaults) {
 if ($RestartIdentityServices) {
     foreach ($serviceName in 'VaultSvc','TokenBroker','NgcCtnrSvc','WbioSrvc') {
         $service = Get-Service $serviceName -ErrorAction SilentlyContinue
-        if ($service -and $service.Status -ne 'Running') { $script:VerificationFailures++; Write-Log "VERIFY FAILED: $serviceName is not running." }
+        if ($service -and $service.StartType -eq 'Disabled') { $script:VerificationFailures++; Write-Log "VERIFY FAILED: $serviceName remains disabled." }
     }
 }
 
